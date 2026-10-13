@@ -1,0 +1,39 @@
+name: Record the voice
+
+# Renders every line in assets/script.js with the cloned ElevenLabs voice
+# and commits audio/*.mp3 plus audio/manifest.json. Runs when the script
+# changes, or by hand from the Actions tab.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [assets/script.js, tools/voice.json, tools/voice.mjs, .github/workflows/voice.yml]
+
+permissions:
+  contents: write
+
+concurrency: voice
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Render clips
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: |
+          if [ -z "$ELEVENLABS_API_KEY" ]; then
+            echo "::warning::ELEVENLABS_API_KEY secret is not set, skipping."
+            exit 0
+          fi
+          node tools/voice.mjs render
+      - name: Commit clips
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add audio
+          git diff --cached --quiet || { git commit -m "Record voice clips"; git push; }
