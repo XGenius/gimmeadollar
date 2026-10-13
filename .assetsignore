@@ -1,0 +1,11 @@
+.git
+.github
+.assetsignore
+.gitignore
+.nojekyll
+.wrangler
+node_modules
+tools
+wrangler.jsonc
+README.md
+CNAME

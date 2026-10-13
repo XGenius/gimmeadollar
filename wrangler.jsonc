@@ -1,0 +1,15 @@
+// Serves the static site from Cloudflare. `npx wrangler deploy` uploads the
+// files and attaches both hostnames as custom domains, which also creates
+// their DNS records in the gimmeadollar.net zone.
+{
+  "name": "gimmeadollar",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": ".",
+    "not_found_handling": "404-page"
+  },
+  "routes": [
+    { "pattern": "gimmeadollar.net", "custom_domain": true },
+    { "pattern": "www.gimmeadollar.net", "custom_domain": true }
+  ]
+}
