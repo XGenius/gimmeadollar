@@ -1,13 +1,29 @@
 // Serves the static site from Cloudflare. `npx wrangler deploy` uploads the
 // files and attaches both hostnames as custom domains, which also creates
 // their DNS records in the gimmeadollar.net zone.
+//
+// Only /api/* runs the Worker script (the millionaire meter); everything else
+// is served straight from the static assets.
+// Secret (set with `wrangler secret put`): STRIPE_WEBHOOK_SECRET.
 {
   "name": "gimmeadollar",
   "compatibility_date": "2026-09-01",
+  "main": "worker/index.js",
   "assets": {
     "directory": ".",
-    "not_found_handling": "404-page"
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/api/*"]
   },
+  "vars": {
+    // The $1 Stripe Payment Link (buy.stripe.com/6oU3cv2jf14758Z7ZrdEs00).
+    "PAYMENT_LINK_ID": "plink_1UQCa5E1YOfYuzo1zKTSDw4B"
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "METER", "class_name": "Meter" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Meter"] }],
+  "observability": { "enabled": true },
   "routes": [
     { "pattern": "gimmeadollar.net", "custom_domain": true },
     { "pattern": "www.gimmeadollar.net", "custom_domain": true }

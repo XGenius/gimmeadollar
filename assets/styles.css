@@ -158,6 +158,19 @@ h1 {
 .ladder li.made-it .r { color: var(--orange); }
 .big-total { font-family: "Lilita One", "Nunito", sans-serif; font-size: clamp(30px, 7vw, 44px); color: var(--green); }
 
+.meter {
+  width: min(100%, 460px); margin: 22px auto 0; text-align: left;
+  background: var(--card); border: 4px solid var(--line); border-radius: 22px;
+  box-shadow: 0 4px 0 var(--line); padding: 14px 16px 12px;
+}
+.meter-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.meter-title { font-family: "Lilita One", "Nunito", sans-serif; font-size: 22px; letter-spacing: .3px; }
+.meter-goal { font-size: 14px; font-weight: 800; color: var(--ink-soft); }
+.meter-bar { height: 22px; margin: 10px 0 8px; border: 3px solid var(--line); border-radius: 99px; background: rgba(127,127,127,.18); overflow: hidden; }
+.meter-bar i { display: block; height: 100%; width: 0; background: repeating-linear-gradient(45deg, var(--green) 0 12px, var(--green-dark) 12px 24px); border-radius: 99px; transition: width 1.2s ease-out; }
+.meter-count { margin: 0; font-size: 16px; font-weight: 800; color: var(--ink-soft); }
+.meter-count b { font-family: "Lilita One", "Nunito", sans-serif; font-weight: 400; font-size: 30px; color: var(--green); font-variant-numeric: tabular-nums; }
+
 .share h2 { display: flex; align-items: center; gap: 10px; }
 .friends { display: flex; gap: 10px; justify-content: center; margin: 14px 0 6px; }
 .friend {
