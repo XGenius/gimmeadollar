@@ -5,7 +5,20 @@
   const page = document.body.dataset.page; // "home" | "thanks"
   const url = cfg.siteUrl;
 
-  const buddy = new GAD.Buddy(document.getElementById("buddy"), { happy: page === "thanks", look: cfg.character });
+  // Which host look this visitor sees: ?look= wins, then their split-test slot, then the default.
+  const LOOKS = ["me", "shades", "natural", "generic"];
+  function pickLook() {
+    const store = (v) => { try { if (v) localStorage.setItem("gad-look", v); return v || localStorage.getItem("gad-look"); } catch (_) { return v; } };
+    const asked = new URLSearchParams(location.search).get("look");
+    if (LOOKS.includes(asked)) return store(asked);
+    const pool = (cfg.lookTest || []).filter((l) => LOOKS.includes(l));
+    if (!pool.length) return cfg.character;
+    const kept = store();
+    return pool.includes(kept) ? kept : store(pool[Math.floor(Math.random() * pool.length)]);
+  }
+  const look = pickLook();
+  document.body.dataset.look = look;
+  const buddy = new GAD.Buddy(document.getElementById("buddy"), { happy: page === "thanks", look });
   const voice = new GAD.Voice(buddy);
   const bubble = document.getElementById("bubble-text");
   const show = page === "thanks"
@@ -42,7 +55,9 @@
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       if (cfg.paymentLink) {
-        window.location.href = cfg.paymentLink;
+        const link = new URL(cfg.paymentLink);
+        link.searchParams.set("client_reference_id", `look-${look}`);
+        window.location.href = link.toString();
       } else {
         openDialog("soon");
       }

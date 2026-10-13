@@ -325,6 +325,9 @@
   //   speech - the browser's built-in text to speech as a stand-in
   //   silent - captions only, mouth flapping in time with the words
   // ---------------------------------------------------------------------
+  // How fast the host talks. 1 is the recording as-is.
+  const SPEED = (window.GAD_CONFIG && window.GAD_CONFIG.voiceSpeed) || 1;
+
   class Voice {
     constructor(buddy) {
       this.buddy = buddy;
@@ -412,12 +415,13 @@
       a.onended = a.onerror = end;
       this.cancel = () => { a.pause(); end(); };
       a.src = url;
+      a.playbackRate = SPEED;
       a.play().catch(end);
     }
     _saySpeech(text, finish) {
       const u = new SpeechSynthesisUtterance(text);
       u.pitch = 1.7;
-      u.rate = 1.08;
+      u.rate = Math.min(2, 1.08 * SPEED);
       const v = pickVoice();
       if (v) u.voice = v;
       let bump = 0;
@@ -438,7 +442,7 @@
     }
     _saySilent(text, finish) {
       const words = text.split(/\s+/).length;
-      const dur = Math.max(1600, words * 330);
+      const dur = Math.max(1200, words * 330 / SPEED);
       const t0 = performance.now();
       this.buddy.level = () => {
         const t = (performance.now() - t0) / 1000;
@@ -513,7 +517,7 @@
         this.bubble.parentElement.classList.add("pop");
         await this.voice.say(id, text);
         if (gen !== this.gen) return;
-        await new Promise((r) => setTimeout(r, this.interrupt ? 50 : 650));
+        await new Promise((r) => setTimeout(r, this.interrupt ? 50 : Math.round(650 / SPEED)));
       }
     }
   }
