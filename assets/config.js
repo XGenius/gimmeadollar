@@ -9,5 +9,7 @@ window.GAD_CONFIG = {
   lookTest: [],
   // How fast the host talks. 1 is the recording as-is.
   voiceSpeed: 1.3,
+  // Start talking out loud on the first tap or key press anywhere on the page.
+  soundOnByDefault: true,
   siteUrl: "https://gimmeadollar.net"
 };

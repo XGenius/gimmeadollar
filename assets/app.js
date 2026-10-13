@@ -48,6 +48,19 @@
   });
   if (startBtn) startBtn.addEventListener("click", turnOn);
 
+  // Sound on by default. Browsers won't play audio until the visitor interacts,
+  // so the first tap, click or key press anywhere on the page starts the pitch.
+  if (cfg.soundOnByDefault) {
+    const kinds = ["click", "touchend", "keydown"];
+    const wake = (e) => {
+      kinds.forEach((k) => document.removeEventListener(k, wake, true));
+      // The sound and start buttons handle themselves; let them.
+      if (e.target.closest && e.target.closest("#sound, #start")) return;
+      if (voice.muted && !heard) turnOn();
+    };
+    kinds.forEach((k) => document.addEventListener(k, wake, true));
+  }
+
   voice.load().then(() => mono.start());
 
   // Pay buttons.
