@@ -162,4 +162,46 @@
     const t = document.getElementById("ladder-total");
     if (t) t.textContent = `$${total.toLocaleString("en-US")}`;
   }
+
+  // Millionaire meter: live dollars given, from the Worker at /api/meter.
+  const meterEl = document.getElementById("meter");
+  if (meterEl) {
+    const fill = meterEl.querySelector(".meter-bar i");
+    const bar = document.getElementById("meter-bar");
+    const amount = document.getElementById("meter-dollars");
+    const note = document.getElementById("meter-note");
+    const money = (n) => `$${n.toLocaleString("en-US")}`;
+    let shown = 0;
+    function countTo(target) {
+      const from = shown, start = performance.now(), ms = 1200;
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      function step(now) {
+        const p = reduce ? 1 : Math.min(1, (now - start) / ms);
+        shown = Math.round(from + (target - from) * (1 - Math.pow(1 - p, 3)));
+        amount.textContent = money(shown);
+        if (p < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+    async function loadMeter() {
+      try {
+        const res = await fetch("/api/meter", { cache: "no-store" });
+        if (!res.ok) throw new Error(`meter HTTP ${res.status}`);
+        const { dollars, goal } = await res.json();
+        // A sliver stays visible once anyone has given, so the first dollar shows up.
+        const pct = dollars > 0 ? Math.max(1.5, Math.min(100, (dollars / goal) * 100)) : 0;
+        fill.style.width = `${pct}%`;
+        bar.setAttribute("aria-valuenow", String(dollars));
+        note.textContent = dollars === 0 ? "given so far. Be the first."
+          : dollars >= goal ? "given. I am a millionaire!"
+          : `given so far. ${money(goal - dollars)} to go.`;
+        meterEl.hidden = false;
+        countTo(dollars);
+      } catch (err) {
+        console.error("Millionaire meter failed to load", err);
+      }
+    }
+    loadMeter();
+    setInterval(() => { if (!document.hidden) loadMeter(); }, 60000);
+  }
 })();
