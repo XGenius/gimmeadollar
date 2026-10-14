@@ -23,6 +23,8 @@ window.GAD_SCRIPT = {
     ["i17", "You don't even have any idea how much fun it'll be."],
     ["i18", "It's gonna be more fun than you've had for the whole rest of your day."],
     ["i19", "And it only costs you a dollar. And that's nothing."],
+    ["i22", "Let's be real here. The laugh you just got is worth a dollar. So go on, gimme a dollar."],
+    ["i23", "If you didn't laugh at all, fine. But I know you did, so gimme a dollar."],
     ["i20", "Come on, gimme a dollar. Make my dreams come true."]
   ],
   // Shuffled forever after the intro. On and on and on.
