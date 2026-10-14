@@ -231,4 +231,28 @@ footer a { color: inherit; }
 .top-actions { display: flex; gap: 8px; align-items: center; }
 #dlg-post .row { gap: 8px; }
 @media (max-width: 420px) { .lbl-wide { display: none; } #dlg-post { padding: 22px 14px; } #dlg-post .btn.icon { width: 48px; height: 48px; padding: 8px; } .top-actions .btn[data-open="post"] { padding: 7px 10px; } }
+.pick { max-width: min(96vw, 1020px); width: 100%; padding: 26px 16px 18px; }
+.pick-sub { margin: 4px auto 0; max-width: 48ch; font-weight: 800; color: var(--ink-soft); }
+.packs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 26px; align-items: stretch; }
+@media (max-width: 900px) { .packs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .packs { grid-template-columns: 1fr; } }
+.pack {
+  position: relative; display: flex; flex-direction: column; gap: 8px; text-align: center;
+  background: var(--card); border: 3px solid var(--line); border-radius: 20px; box-shadow: 0 6px 0 var(--line); padding: 20px 14px 16px;
+}
+.pack.best { border-color: var(--green-dark); box-shadow: 0 6px 0 var(--green-dark); }
+.ribbon {
+  position: absolute; top: -15px; left: 50%; transform: translateX(-50%) rotate(-3deg); white-space: nowrap;
+  background: var(--orange); color: #1f1a17; border: 3px solid var(--line); border-radius: 999px; font-weight: 900; font-size: 13px; padding: 3px 12px;
+}
+.pack-name { font-family: "Lilita One", "Nunito", sans-serif; font-size: 24px; line-height: 1.1; }
+.pack-gets { font-weight: 900; font-size: 14px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .06em; }
+.pack-price { font-family: "Lilita One", "Nunito", sans-serif; font-size: 46px; line-height: 1; color: var(--green); text-shadow: 0 2px 0 var(--line); }
+.pack-price small { font-size: 20px; }
+.pack-was { font-weight: 900; color: var(--ink-soft); font-size: 15px; }
+.pack-was s { text-decoration-thickness: 3px; text-decoration-color: var(--orange); }
+dialog .pack-blurb { font-weight: 700; font-size: 15px; line-height: 1.4; flex: 1; margin: 0; }
+.pack-go { color: #fff; background: var(--green); border-color: var(--green-ink); box-shadow: 0 4px 0 var(--green-ink); font-size: 17px; padding: 10px 12px; }
+.pack-go:hover { background: #26b84f; }
+dialog .pick-fine { font-size: 13px; font-weight: 700; color: var(--ink-soft); margin: 20px auto 0; max-width: 62ch; }
 [hidden] { display: none !important; }

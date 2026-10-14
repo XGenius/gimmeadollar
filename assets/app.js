@@ -63,17 +63,40 @@
 
   voice.load().then(() => mono.start());
 
-  // Pay buttons.
+  // Pay buttons open the "How many dollars?" pop-up; each card goes to its own Stripe link.
+  // The look rides along to Stripe as client_reference_id so payments can be counted per look.
+  const checkoutUrl = (href) => {
+    const link = new URL(href);
+    link.searchParams.set("client_reference_id", `look-${look}`);
+    return link.toString();
+  };
+  const packs = (cfg.packages || []).filter((p) => p.link);
+  if (packs.length) {
+    const d = document.createElement("dialog");
+    d.id = "dlg-pick";
+    d.className = "pick";
+    d.setAttribute("aria-labelledby", "pick-title");
+    d.innerHTML = `<button class="btn x" type="button" data-close aria-label="Close"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+      <h2 id="pick-title">How many dollars?</h2>
+      <p class="pick-sub">One is great. More is greater. Buy in bulk and save. I'm told that's how business works.</p>
+      <div class="packs">${packs.map((p) => `<div class="pack${p.ribbon ? " best" : ""}">
+        ${p.ribbon ? `<span class="ribbon">${p.ribbon}</span>` : ""}
+        <div class="pack-name">${p.name}</div>
+        <div class="pack-gets">${p.gets}</div>
+        <div class="pack-price"><small>$</small>${p.price}</div>
+        <div class="pack-was">${p.was}</div>
+        <p class="pack-blurb">${p.blurb}</p>
+        <a class="btn pack-go" href="${checkoutUrl(p.link)}">${p.cta}</a>
+      </div>`).join("")}</div>
+      <p class="pick-fine">Discounts apply to dollars only. Dollars apply to me only. All sales are final because you get nothing in return.</p>`;
+    document.body.appendChild(d);
+  }
   document.querySelectorAll("[data-pay]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
-      if (cfg.paymentLink) {
-        const link = new URL(cfg.paymentLink);
-        link.searchParams.set("client_reference_id", `look-${look}`);
-        window.location.href = link.toString();
-      } else {
-        openDialog("soon");
-      }
+      if (packs.length) openDialog("pick");
+      else if (cfg.paymentLink) window.location.href = checkoutUrl(cfg.paymentLink);
+      else openDialog("soon");
     });
     let lastHover = 0;
     btn.addEventListener("pointerenter", () => {
