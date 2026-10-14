@@ -1,5 +1,6 @@
 {
   "voice": "NezK5yQzYptUyV38YZAj",
+  "tempo": 1.3,
   "clips": [
     "i01",
     "i02",
@@ -147,6 +148,5 @@
     "h01": "Yes! That one! Push that one!",
     "h02": "Ooh, you're so close!",
     "h03": "Do it! Do it! Do it!"
-  },
-  "tempo": 1.3
+  }
 }
