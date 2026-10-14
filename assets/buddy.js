@@ -82,6 +82,9 @@
       front: `
         <path d="M116 176 Q134 162 150 170 Q166 162 184 176 Q170 186 150 180 Q130 186 116 176 Z" fill="#3a2b22" stroke-width="4" ${S}/>`
     },
+    // Mockup (2026-10-14): "me" with a rounder, fuller beard and a tie-dye bandana.
+    // Built from the "me" drawing below so the two stay in step.
+    tiedye: null,
     natural: {
       outfit: "tee",
       mouth: { cx: 150, cy: 186, w: 25, rest: 0.22 },
@@ -162,6 +165,22 @@
       front: ""
     }
   };
+
+  // Tie-dye swirl for the bandana: rings of color around a point, clipped to the band.
+  const TIEDYE_RINGS = ["#7b3fbf", "#2f6fdb", "#1fae8a", "#f2c230", "#f28a2e", "#e8455f", "#b43fbf", "#2f6fdb", "#1fae8a", "#f2c230", "#e8455f"]
+    .map((c, k, a) => `<circle cx="152" cy="98" r="${(a.length - k) * 9}" fill="${c}"/>`).join("");
+  LOOKS.tiedye = Object.assign({}, LOOKS.me, {
+    face: LOOKS.me.face
+      // Swap the camo pattern inside the band for the swirl.
+      .replace(/(<g clip-path="url\(#gad-band-__UID__\)">)[\s\S]*?(<\/g>)/,
+        `$1<rect x="70" y="60" width="160" height="70" fill="#e8455f"/>${TIEDYE_RINGS}$2`)
+      // Knot tails get the same colors.
+      .replace(/(<path d="M218 100 Q246 90[^"]*" )fill="#5d6b3d"/,
+        `<defs><linearGradient id="gad-td-__UID__" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8455f"/><stop offset=".35" stop-color="#f2c230"/><stop offset=".65" stop-color="#1fae8a"/><stop offset="1" stop-color="#7b3fbf"/></linearGradient></defs>$1fill="url(#gad-td-__UID__)"`)
+      // A beard that rounds off at the bottom instead of coming to a point.
+      .replace("M86 140 Q84 204 110 240 Q128 266 150 270 Q172 266 190 240 Q216 204 214 140",
+        "M86 140 Q80 212 98 240 Q116 264 150 266 Q184 264 202 240 Q220 212 214 140")
+  });
 
   // Outfits. The suit is the dressed-up look; the tee matches
   // D1G1T0L's everyday style (navy graphic tee with a wave print).

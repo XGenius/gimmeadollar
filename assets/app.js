@@ -6,7 +6,7 @@
   const url = cfg.siteUrl;
 
   // Which host look this visitor sees: ?look= wins, then their split-test slot, then the default.
-  const LOOKS = ["me", "shades", "natural", "generic"];
+  const LOOKS = ["me", "shades", "natural", "generic", "tiedye"];
   function pickLook() {
     const store = (v) => { try { if (v) localStorage.setItem("gad-look", v); return v || localStorage.getItem("gad-look"); } catch (_) { return v; } };
     const asked = new URLSearchParams(location.search).get("look");

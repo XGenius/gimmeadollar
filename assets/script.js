@@ -54,7 +54,20 @@ window.GAD_SCRIPT = {
     ["x23", "I asked my mom for a dollar. She said ask a stranger. Hi, stranger. Gimme a dollar."],
     ["x24", "You could close this tab. But then who would I ask for a dollar? Nobody. That's who."],
     ["x25", "I don't get tired. I don't get bored. I just want a dollar."],
-    ["x26", "Gimme a dollar and I'll stop asking. For like a minute. Probably."]
+    ["x26", "Gimme a dollar and I'll stop asking. For like a minute. Probably."],
+    ["x27", "Think of all the things I could do with that dollar. Well, really, basically nothing, which is why you won't miss it if you gimme it. Go on, gimme a dollar."],
+    ["x28", "But if a lot of people gimme a dollar, you and all your friends, and your friends' friends, and your friends' friends' friends, then I could get all kinds of stuff. I could take a trip. I could buy a boat. Get a Lamborghini. Gimme a dollar."],
+    ["x29", "Let's get this whole thing started. Come on, gimme a dollar."],
+    ["x30", "I've been standing here this whole time. Do you know how hard that is with no legs? Gimme a dollar."],
+    ["x31", "This is the part where you gimme a dollar."],
+    ["x32", "I could do this all day. Actually, I am doing this all day. Gimme a dollar."],
+    ["x33", "If everybody on the internet gave me a dollar, I'd have, like, a lot of dollars."],
+    ["x34", "You don't have to gimme a dollar. But you could. And you should."],
+    ["x35", "I checked my pockets. Nothing. Not even lint. Gimme a dollar."],
+    ["x36", "A dollar won't change your life. It'll change mine. A little. Gimme a dollar."],
+    ["x37", "Somewhere out there, a dollar is waiting to meet me. It's in your wallet. Gimme a dollar."],
+    ["x38", "I'm not saying I'll cry if you don't gimme a dollar. I'm just saying my eyes are getting a little sweaty."],
+    ["x39", "Still here? Me too. Gimme a dollar."]
   ],
   // The thank-you page, after someone actually pays.
   thanks: [
