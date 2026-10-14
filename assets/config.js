@@ -5,7 +5,7 @@ window.GAD_CONFIG = {
   // Stripe Payment Link; set packages to [] to skip the pop-up and go straight to paymentLink.
   packages: [
     { name: "The Classic", gets: "Gimme 1 dollar", price: "1", was: "Full price. No shame.",
-      blurb: "The original. One dollar. You'll never even miss it.", cta: "Gimme $1",
+      blurb: "The original. One dollar. You'll never even miss it.", cta: "Gimme a dollar",
       link: "https://buy.stripe.com/dRm7sL5vrbIL0SJdjLdEs01" },
     { name: "The Ten-Pack", gets: "Gimme 10 dollars", price: "9", was: "<s>$10</s> 10% off!",
       blurb: "You save a whole dollar. Which you could then gimme.", cta: "Gimme 10 for $9",
