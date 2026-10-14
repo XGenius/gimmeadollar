@@ -60,10 +60,11 @@ function duration(file) {
   }
 }
 
-// Mastering. Speeding up here (Rubber Band, offline) sounds far cleaner than
-// asking the browser to time-stretch on the fly, and the short fades stop the
-// pops you get when a clip starts or stops mid-sound.
-const TEMPO = cfg.tempo || 1.3;
+// Mastering: trim, short fades (no pops when a clip starts or stops mid-sound)
+// and a peak limit (no crackle). Speed stays at 1: the browser speeds the
+// voice up at playback. Offline time-stretching (Rubber Band) made the voice
+// sound like it was in a tin can, so `tempo` in tools/voice.json defaults to 1.
+const TEMPO = cfg.tempo || 1;
 const rawDir = path.join(root, "tools", "raw");
 let stretch;
 function master(id) {
@@ -75,7 +76,7 @@ function master(id) {
   const chain = [
     "silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.02",
     "areverse", "silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.05", "areverse",
-    stretch,
+    ...(TEMPO === 1 ? [] : [stretch]),
     "afade=t=in:d=0.015", "areverse", "afade=t=in:d=0.04", "areverse",
     "adelay=30:all=1", "apad=pad_dur=0.08"
   ].join(",");
