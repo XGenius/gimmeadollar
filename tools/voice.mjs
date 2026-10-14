@@ -1,7 +1,8 @@
 // Clone the voice and record every line in assets/script.js with ElevenLabs.
 //
 //   ELEVENLABS_API_KEY=... node tools/voice.mjs clone path/to/sample1.m4a [more samples...]
-//   ELEVENLABS_API_KEY=... node tools/voice.mjs render            (all lines)
+//   ELEVENLABS_API_KEY=... node tools/voice.mjs render            (new or changed lines)
+//   ELEVENLABS_API_KEY=... node tools/voice.mjs render all        (every line)
 //   ELEVENLABS_API_KEY=... node tools/voice.mjs render i01 x14    (just these)
 //
 // clone saves the new voice id to tools/voice.json; render writes audio/<id>.mp3
@@ -61,13 +62,23 @@ async function render(only) {
   const lines = [...S.intro, ...S.extra, ...S.thanks, ...S.hover];
   const outDir = path.join(root, "audio");
   fs.mkdirSync(outDir, { recursive: true });
+  // With no ids, record only lines that are new or whose words changed since
+  // their clip was made ("all" re-records everything).
+  const manifestPath = path.join(outDir, "manifest.json");
+  const prev = fs.existsSync(manifestPath) ? JSON.parse(fs.readFileSync(manifestPath, "utf8")) : {};
+  const madeFrom = prev.texts || {};
+  if (only[0] === "all") only = lines.map(([id]) => id);
+  else if (!only.length) {
+    only = lines.filter(([id, text]) => madeFrom[id] !== text || !fs.existsSync(path.join(outDir, `${id}.mp3`))).map(([id]) => id);
+    if (!only.length) { console.log("Every line already has an up-to-date clip."); return; }
+  }
   const settings = Object.assign(
     { stability: 0.35, similarity_boost: 0.9, style: 0.55, use_speaker_boost: true },
     cfg.voice_settings || {}
   );
   for (let i = 0; i < lines.length; i++) {
     const [id, text] = lines[i];
-    if (only.length && !only.includes(id)) continue;
+    if (!only.includes(id)) continue;
     // The model sometimes tacks garbled babble onto a line. That shows up as a
     // clip far longer than the words need, so re-roll those with a steadier
     // voice until the length looks like plain speech.
@@ -93,7 +104,12 @@ async function render(only) {
     }
   }
   const have = lines.map(([id]) => id).filter((id) => fs.existsSync(path.join(outDir, `${id}.mp3`)));
-  fs.writeFileSync(path.join(outDir, "manifest.json"), JSON.stringify({ voice, clips: have }, null, 2) + "\n");
+  const texts = {};
+  for (const [id, text] of lines) {
+    if (!have.includes(id)) continue;
+    texts[id] = only.includes(id) ? text : madeFrom[id] || text;
+  }
+  fs.writeFileSync(manifestPath, JSON.stringify({ voice, clips: have, texts }, null, 2) + "\n");
   console.log(`manifest.json lists ${have.length} of ${lines.length} lines.`);
 }
 
