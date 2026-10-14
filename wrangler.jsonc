@@ -4,7 +4,9 @@
 //
 // Only /api/* runs the Worker script (the millionaire meter); everything else
 // is served straight from the static assets.
-// Secret (set with `wrangler secret put`): STRIPE_WEBHOOK_SECRET.
+// Secrets (set with `wrangler secret put`): STRIPE_WEBHOOK_SECRET, RESEND_API_KEY.
+// Until RESEND_API_KEY is set, Notify Me signups wait in the Durable Object;
+// the cron below syncs them to Resend once it is.
 {
   "name": "gimmeadollar",
   "compatibility_date": "2026-09-01",
@@ -25,6 +27,7 @@
     "bindings": [{ "name": "METER", "class_name": "Meter" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Meter"] }],
+  "triggers": { "crons": ["*/15 * * * *"] },
   "observability": { "enabled": true },
   "routes": [
     { "pattern": "gimmeadollar.net", "custom_domain": true },

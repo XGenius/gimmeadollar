@@ -5,6 +5,12 @@
 //   POST /api/stripe-webhook <- Stripe checkout events for the $1 payment link
 //   POST /api/stripe-webhook/<token> <- same, for an endpoint whose URL carries a
 //        random token instead of a signing secret (only its SHA-256 is in this repo)
+//   POST /api/notify         <- { email, amount }: "notify me when the meter reaches $amount"
+//
+// Notify Me signups are stored in the same Durable Object. When the RESEND_API_KEY
+// secret is set, each signup is also added to Resend as a contact (custom property
+// notify_at = the amount) in the "Gimme A Dollar" segment. Signups saved before the
+// key existed are synced by the cron trigger, so nothing is lost while it is missing.
 //
 // Each paid checkout session is stored once in a SQLite Durable Object, so
 // Stripe retries and duplicate deliveries never double count.
@@ -33,6 +39,57 @@ export class Meter extends DurableObject {
       amount_cents INTEGER NOT NULL,
       created INTEGER NOT NULL
     )`);
+    ctx.storage.sql.exec(`CREATE TABLE IF NOT EXISTS signups (
+      email TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      created INTEGER NOT NULL,
+      ip_hash TEXT,
+      synced INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (email, amount)
+    )`);
+    ctx.storage.sql.exec(`CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT)`);
+  }
+
+  // Returns "saved", "duplicate" or "slow down".
+  addSignup(email, amount, ipHash) {
+    const now = Math.floor(Date.now() / 1000);
+    const recent = this.ctx.storage.sql
+      .exec("SELECT COUNT(*) AS n FROM signups WHERE ip_hash = ? AND created > ?", ipHash, now - 3600)
+      .one().n;
+    if (recent >= SIGNUPS_PER_IP_PER_HOUR) return "slow down";
+    const cur = this.ctx.storage.sql.exec(
+      "INSERT OR IGNORE INTO signups (email, amount, created, ip_hash) VALUES (?, ?, ?, ?)",
+      email, amount, now, ipHash,
+    );
+    return cur.rowsWritten > 0 ? "saved" : "duplicate";
+  }
+
+  // One row per email, holding the lowest amount that email is still waiting on.
+  unsynced(limit) {
+    return this.ctx.storage.sql
+      .exec(`SELECT email, MIN(amount) AS amount FROM signups
+             WHERE email IN (SELECT email FROM signups WHERE synced = 0)
+             GROUP BY email LIMIT ?`, limit)
+      .toArray();
+  }
+
+  markSynced(email) {
+    this.ctx.storage.sql.exec("UPDATE signups SET synced = 1 WHERE email = ?", email);
+  }
+
+  getKv(k) {
+    const rows = this.ctx.storage.sql.exec("SELECT v FROM kv WHERE k = ?", k).toArray();
+    return rows.length ? rows[0].v : null;
+  }
+
+  setKv(k, v) {
+    this.ctx.storage.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES (?, ?)", k, v);
+  }
+
+  signupStats() {
+    return this.ctx.storage.sql
+      .exec("SELECT COUNT(DISTINCT email) AS people, COUNT(*) AS signups, COALESCE(SUM(synced = 0), 0) AS unsynced FROM signups")
+      .one();
   }
 
   // Returns true when the session was new and got counted.
@@ -54,6 +111,92 @@ export class Meter extends DurableObject {
 }
 
 const meter = (env) => env.METER.getByName("global");
+
+const SIGNUPS_PER_IP_PER_HOUR = 10;
+const EMAIL_RE = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]{2,}$/;
+const RESEND = "https://api.resend.com";
+const SEGMENT_NAME = "Gimme A Dollar";
+
+async function resend(env, method, path, body) {
+  const res = await fetch(`${env.RESEND_API_BASE || RESEND}${path}`, {
+    method,
+    headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  let data = null;
+  try { data = JSON.parse(text); } catch (_) {}
+  return { ok: res.ok, status: res.status, data, text };
+}
+
+// The "notify_at" contact property and the segment are created once, then remembered.
+async function resendSetup(env, m) {
+  if (!(await m.getKv("resend_property"))) {
+    const r = await resend(env, "POST", "/contact-properties", { key: "notify_at", type: "number" });
+    // Already existing is fine; anything else is logged and retried next time.
+    if (!r.ok && !/exist/i.test(r.text)) throw new Error(`resend contact-properties ${r.status}: ${r.text}`);
+    await m.setKv("resend_property", "1");
+  }
+  let segment = env.RESEND_SEGMENT_ID || (await m.getKv("resend_segment"));
+  if (!segment) {
+    const list = await resend(env, "GET", "/segments");
+    const found = list.ok && list.data && (list.data.data || []).find((x) => x.name === SEGMENT_NAME);
+    if (found) segment = found.id;
+    else {
+      const r = await resend(env, "POST", "/segments", { name: SEGMENT_NAME });
+      if (!r.ok) throw new Error(`resend segments ${r.status}: ${r.text}`);
+      segment = r.data.id;
+    }
+    await m.setKv("resend_segment", segment);
+  }
+  return segment;
+}
+
+// Pushes unsynced signups to Resend. Does nothing until RESEND_API_KEY is set.
+async function syncSignups(env, limit = 25) {
+  if (!env.RESEND_API_KEY) return { skipped: "no RESEND_API_KEY" };
+  const m = meter(env);
+  const rows = await m.unsynced(limit);
+  if (!rows.length) return { synced: 0 };
+  const segment = await resendSetup(env, m);
+  let synced = 0;
+  for (const { email, amount } of rows) {
+    const contact = { email, unsubscribed: false, properties: { notify_at: amount } };
+    let r = await resend(env, "POST", "/contacts", contact);
+    if (!r.ok && (r.status === 409 || /exist/i.test(r.text))) {
+      r = await resend(env, "PATCH", `/contacts/${encodeURIComponent(email)}`, { properties: { notify_at: amount } });
+    }
+    if (!r.ok) { console.error(JSON.stringify({ msg: "resend contact failed", status: r.status, body: r.text })); continue; }
+    const seg = await resend(env, "POST", `/contacts/${encodeURIComponent(email)}/segments/${segment}`);
+    if (!seg.ok && !/exist|already/i.test(seg.text)) {
+      console.error(JSON.stringify({ msg: "resend segment add failed", status: seg.status, body: seg.text }));
+      continue;
+    }
+    await m.markSynced(email);
+    synced++;
+  }
+  return { synced };
+}
+
+async function handleNotify(request, env, ctx) {
+  let body;
+  try { body = await request.json(); } catch (_) { return json({ error: "Send JSON." }, 400); }
+  // Bots fill in every field, including the hidden one people never see.
+  if (body.website) return json({ ok: true });
+  const email = String(body.email || "").trim().toLowerCase();
+  const amount = Math.round(Number(String(body.amount ?? "").replace(/[$,\s]/g, "")));
+  if (email.length > 254 || !EMAIL_RE.test(email)) return json({ error: "That email address does not look right." }, 400);
+  if (!Number.isFinite(amount) || amount < 1 || amount > GOAL_DOLLARS) {
+    return json({ error: "Pick a whole dollar amount between $1 and $1,000,000." }, 400);
+  }
+  const ip = request.headers.get("cf-connecting-ip") || "";
+  const ipHash = hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`gad:${ip}`))).slice(0, 32);
+  const result = await meter(env).addSignup(email, amount, ipHash);
+  if (result === "slow down") return json({ error: "Easy there. Try again in a bit." }, 429);
+  console.log(JSON.stringify({ msg: "notify signup", amount, result }));
+  ctx.waitUntil(syncSignups(env).catch((err) => console.error(JSON.stringify({ msg: "resend sync failed", err: String(err) }))));
+  return json({ ok: true, amount });
+}
 
 function json(body, status = 200, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -152,7 +295,21 @@ export default {
     if (pathname.startsWith("/api/stripe-webhook/") && request.method === "POST") {
       return handleWebhook(request, env, pathname.slice("/api/stripe-webhook/".length));
     }
+    if (pathname === "/api/notify" && request.method === "POST") return handleNotify(request, env, ctx);
     if (pathname.startsWith("/api/")) return json({ error: "not found" }, 404);
     return env.ASSETS.fetch(request);
+  },
+
+  // Catches up on signups saved while Resend was unreachable or not set up yet.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil((async () => {
+      try {
+        const res = await syncSignups(env, 100);
+        const stats = await meter(env).signupStats();
+        console.log(JSON.stringify({ msg: "notify sync", ...res, ...stats }));
+      } catch (err) {
+        console.error(JSON.stringify({ msg: "resend sync failed", err: String(err) }));
+      }
+    })());
   },
 };

@@ -128,6 +128,23 @@
   }
   renderFriends();
 
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (_) {
+      const t = document.createElement("textarea");
+      t.value = text; document.body.appendChild(t); t.select();
+      try { document.execCommand("copy"); } catch (_) {}
+      t.remove();
+    }
+  }
+  const e = encodeURIComponent;
+  const SOCIAL = {
+    facebook: `https://www.facebook.com/sharer/sharer.php?u=${e(url)}`,
+    x: `https://x.com/intent/tweet?text=${e(msg)}&url=${e(url)}`,
+    linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${e(url)}`,
+  };
+
   document.querySelectorAll("[data-share]").forEach((b) => {
     const kind = b.dataset.share;
     if (kind === "native" && !navigator.share) { b.hidden = true; return; }
@@ -140,15 +157,31 @@
       } else if (kind === "email") {
         window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(`${msg}\n\n${url}`)}`;
         bump();
-      } else if (kind === "copy") {
+      } else if (SOCIAL[kind]) {
+        // "noopener" would make window.open return null, so cut the link to this page by hand.
+        const w = window.open(SOCIAL[kind], "_blank", "width=620,height=680");
+        if (w) w.opener = null; else window.location.href = SOCIAL[kind];
+        bump();
+      } else if (kind === "instagram") {
+        // Instagram has no web share link. On phones, share the picture and let them pick
+        // Instagram from the share sheet; everywhere else, copy the link for their story or bio.
+        const note = b.closest(".socials") && b.closest(".socials").querySelector(".socials-note");
         try {
-          await navigator.clipboard.writeText(url);
-        } catch (_) {
-          const t = document.createElement("textarea");
-          t.value = url; document.body.appendChild(t); t.select();
-          try { document.execCommand("copy"); } catch (_) {}
-          t.remove();
+          const blob = await (await fetch("assets/og.png")).blob();
+          const file = new File([blob], "gimmeadollar.png", { type: "image/png" });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], text: `${msg} ${url}` });
+            bump();
+            return;
+          }
+        } catch (err) {
+          if (err && err.name === "AbortError") return;
         }
+        await copyText(url);
+        if (note) note.textContent = "Link copied. Paste it into your Instagram story or bio.";
+        bump();
+      } else if (kind === "copy") {
+        await copyText(url);
         const lbl = b.querySelector(".lbl");
         const old = lbl.textContent;
         lbl.textContent = "Copied";
@@ -177,6 +210,7 @@
   }
 
   // Millionaire meter: live dollars given, from the Worker at /api/meter.
+  let meterDollars = 0;
   const meterEl = document.getElementById("meter");
   if (meterEl) {
     const fill = meterEl.querySelector(".meter-bar i");
@@ -201,6 +235,7 @@
         const res = await fetch("/api/meter", { cache: "no-store" });
         if (!res.ok) throw new Error(`meter HTTP ${res.status}`);
         const { dollars, goal } = await res.json();
+        meterDollars = dollars;
         // A sliver stays visible once anyone has given, so the first dollar shows up.
         const pct = dollars > 0 ? Math.max(1.5, Math.min(100, (dollars / goal) * 100)) : 0;
         fill.style.width = `${pct}%`;
@@ -216,5 +251,62 @@
     }
     loadMeter();
     setInterval(() => { if (!document.hidden) loadMeter(); }, 60000);
+  }
+
+  // Notify Me: "tell me when the meter reaches $X and I will give you a dollar then."
+  const form = document.getElementById("notify-form");
+  if (form) {
+    const amountIn = document.getElementById("notify-amount");
+    const msgEl = document.getElementById("notify-msg");
+    const done = document.getElementById("notify-done");
+    const dlg = document.getElementById("dlg-notify");
+    const money = (n) => `$${n.toLocaleString("en-US")}`;
+    const parse = () => Math.round(Number(amountIn.value.replace(/[$,\s]/g, "")));
+    amountIn.addEventListener("input", () => {
+      const n = parse();
+      msgEl.textContent = Number.isFinite(n) && n >= 1 && n <= meterDollars
+        ? `The meter is already past ${money(n)}. So, gimme a dollar now?`
+        : "";
+    });
+    dlg.addEventListener("close", () => {
+      if (!done.hidden) { done.hidden = true; form.hidden = false; form.reset(); msgEl.textContent = ""; }
+    });
+    form.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const amount = parse();
+      const email = form.email.value.trim();
+      if (!Number.isFinite(amount) || amount < 1 || amount > 1000000) {
+        msgEl.textContent = "Pick a whole dollar amount between $1 and $1,000,000.";
+        amountIn.focus();
+        return;
+      }
+      if (!form.email.checkValidity() || !email) {
+        msgEl.textContent = "That email address does not look right.";
+        form.email.focus();
+        return;
+      }
+      const btn = form.querySelector("button[type=submit]");
+      btn.disabled = true;
+      msgEl.textContent = "Saving...";
+      try {
+        const res = await fetch("/api/notify", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ email, amount, website: form.website.value }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Something went wrong. Try again?");
+        document.getElementById("notify-done-text").textContent =
+          `I will email you when the Millionaire Meter hits ${money(amount)}. Then you owe me a dollar. I will remember.`;
+        form.hidden = true;
+        done.hidden = false;
+        buddy.mood("excited");
+        setTimeout(() => buddy.mood(""), 2500);
+      } catch (err) {
+        msgEl.textContent = err.message;
+      } finally {
+        btn.disabled = false;
+      }
+    });
   }
 })();
