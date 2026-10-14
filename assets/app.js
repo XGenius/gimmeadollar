@@ -103,9 +103,9 @@
   // Tell three friends.
   const paid = page === "thanks";
   const msg = paid
-    ? "I just gave a dollar to the world's most persistent infomercial. Now it's your turn. Then tell three friends."
-    : "There's an infomercial on this website that will not stop asking me for one dollar. Go see.";
-  const subject = paid ? "I gave it a dollar. Your turn." : "This infomercial wants a dollar from you";
+    ? "I just gave a dollar to a silly guy who would not stop asking. Now it's your turn. Then tell three friends."
+    : "There's a silly guy on this website who will not stop asking me for one dollar. Go see.";
+  const subject = paid ? "I gave it a dollar. Your turn." : "This silly guy wants a dollar from you";
 
   let told = 0;
   try { told = Math.min(3, parseInt(localStorage.getItem("gad-told") || "0", 10) || 0); } catch (_) {}

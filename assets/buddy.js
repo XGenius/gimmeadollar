@@ -3,7 +3,7 @@
 (function () {
   const NS = "http://www.w3.org/2000/svg";
 
-  // The infomercial host. Drawn on a 300x340 grid, then scaled into the
+  // The silly guy. Drawn on a 300x340 grid, then scaled into the
   // 400x470 stage. `look` is "natural", "shades" or "me" (D1G1T0L bare-faced, in sunglasses, or in a camo bandana) or "generic".
   const INK = "#1f1a17", SKIN = "#eab896", SKIN_D = "#c98d63";
   const S = `stroke="${INK}" stroke-linejoin="round" stroke-linecap="round"`;
@@ -167,7 +167,7 @@
     }
   };
 
-  // Outfits. The suit is the classic infomercial look; the tee matches
+  // Outfits. The suit is the dressed-up look; the tee matches
   // D1G1T0L's everyday style (navy graphic tee with a wave print).
   const TEE = "#24335e", TEE_D = "#18244a";
   const OUTFITS = {
@@ -241,7 +241,7 @@
         </g>` : "";
     const burst = happy ? ["SOLD!", 19] : ["$1!", 22];
     return `
-<svg viewBox="0 0 400 ${legs ? 540 : 470}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A cartoon infomercial host in a suit and headset mic, arms wide, pitching you on giving a dollar">
+<svg viewBox="0 0 400 ${legs ? 540 : 470}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A cartoon silly guy, arms wide, asking you for a dollar">
   <defs>
     <clipPath id="gad-mouth-clip-${uid}"><path class="gad-mouth-shape"/></clipPath>
   </defs>
