@@ -50,7 +50,7 @@ function duration(file) {
   try {
     return parseFloat(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file]).toString());
   } catch (_) {
-    return 0; // no ffprobe: skip the check
+    throw new Error("ffprobe is needed to catch garbled clips. Install ffmpeg.");
   }
 }
 
