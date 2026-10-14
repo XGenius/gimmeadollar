@@ -95,10 +95,18 @@ h1 {
   padding: 14px 20px; font-size: clamp(18px, 4.4vw, 23px); font-weight: 900; line-height: 1.25;
   box-shadow: 0 5px 0 #1f1a17;
 }
+/* The pointer is two stacked triangles that start at the bubble's bottom edge and hang
+   below it, so it never overlaps the text however many lines there are. */
+.bubble::before, .bubble::after {
+  content: ""; position: absolute; left: 50%; width: 0; height: 0; border-style: solid; border-bottom: 0;
+}
+.bubble::before {
+  bottom: -30px; margin-left: -20px;
+  border-width: 30px 20px 0 20px; border-color: #1f1a17 transparent transparent transparent;
+}
 .bubble::after {
-  content: ""; position: absolute; left: 50%; bottom: -22px; width: 30px; height: 30px; margin-left: -15px;
-  background: var(--bubble); border-right: 4px solid #1f1a17; border-bottom: 4px solid #1f1a17;
-  transform: rotate(45deg) skew(12deg, 12deg); border-bottom-right-radius: 6px;
+  bottom: -22px; margin-left: -15px;
+  border-width: 22px 15px 0 15px; border-color: var(--bubble) transparent transparent transparent;
 }
 .bubble.pop { animation: pop .28s cubic-bezier(.3,1.6,.5,1); }
 @keyframes pop { from { transform: scale(.9); } to { transform: scale(1); } }
