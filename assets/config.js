@@ -1,6 +1,6 @@
 window.GAD_CONFIG = {
-  // Stripe Payment Link for the $1 gift.
-  paymentLink: "https://buy.stripe.com/6oU3cv2jf14758Z7ZrdEs00",
+  // Stripe Payment Link: $1 each, and people can pick how many.
+  paymentLink: "https://buy.stripe.com/dRm7sL5vrbIL0SJdjLdEs01",
   // Host look: "shades" (D1G1T0L in sunglasses), "natural" (no bandana or sunglasses), "me" (camo bandana), or "generic".
   character: "me",
   // Split test: list looks here (for example ["me", "shades", "natural", "generic"]) and each

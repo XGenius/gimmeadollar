@@ -18,8 +18,10 @@
     "run_worker_first": ["/api/*"]
   },
   "vars": {
-    // The $1 Stripe Payment Link (buy.stripe.com/6oU3cv2jf14758Z7ZrdEs00).
-    "PAYMENT_LINK_ID": "plink_1UQCa5E1YOfYuzo1zKTSDw4B",
+    // Stripe Payment Links whose payments count on the meter, comma separated:
+    // the current one (buy.stripe.com/dRm7sL5vrbIL0SJdjLdEs01, $1 each, any quantity)
+    // and the original fixed $1 link (buy.stripe.com/6oU3cv2jf14758Z7ZrdEs00).
+    "PAYMENT_LINK_IDS": "plink_1UQXUyE1YOfYuzo1vyFlzS4U,plink_1UQCa5E1YOfYuzo1zKTSDw4B",
     // SHA-256 of the random token in the Stripe webhook endpoint's URL.
     "HOOK_TOKEN_SHA256": "08c7d38812a3f2730dd07da33b26b7bde5e67768ebeabbcde6cc9f3896dd8427"
   },

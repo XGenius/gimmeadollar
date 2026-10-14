@@ -2,7 +2,7 @@
 // only /api/* reaches this script (see run_worker_first in wrangler.jsonc).
 //
 //   GET  /api/meter          -> { dollars, gifts, goal }   (cached 30s at the edge)
-//   POST /api/stripe-webhook <- Stripe checkout events for the $1 payment link
+//   POST /api/stripe-webhook <- Stripe checkout events for the payment links
 //   POST /api/stripe-webhook/<token> <- same, for an endpoint whose URL carries a
 //        random token instead of a signing secret (only its SHA-256 is in this repo)
 //   POST /api/notify         <- { email, amount }: "notify me when the meter reaches $amount"
@@ -261,7 +261,8 @@ async function handleWebhook(request, env, token) {
   const event = JSON.parse(raw);
   const s = event.data && event.data.object;
   if (!COUNTED_EVENTS.has(event.type) || !s) return json({ ignored: event.type });
-  if (s.payment_link !== env.PAYMENT_LINK_ID) return json({ ignored: "other payment link" });
+  const links = String(env.PAYMENT_LINK_IDS || "").split(",").map((x) => x.trim());
+  if (!links.includes(s.payment_link)) return json({ ignored: "other payment link" });
   if (s.payment_status !== "paid") return json({ ignored: `payment_status ${s.payment_status}` });
   if (s.currency !== "usd" || !Number.isInteger(s.amount_total)) {
     console.error(JSON.stringify({ msg: "stripe webhook: unexpected amount", session: s.id, currency: s.currency, amount_total: s.amount_total }));
