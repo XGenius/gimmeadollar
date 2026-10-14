@@ -264,3 +264,5 @@ dialog .pack-blurb { font-weight: 700; font-size: 15px; line-height: 1.4; flex: 
 .pack-go:hover { background: #26b84f; }
 dialog .pick-fine { font-size: 13px; font-weight: 700; color: var(--ink-soft); margin: 20px auto 0; max-width: 62ch; }
 [hidden] { display: none !important; }
+.tell-row { margin-top: 22px; }
+.meter + .socials { margin-top: 14px; }

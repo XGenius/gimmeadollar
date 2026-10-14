@@ -19,7 +19,7 @@ window.GAD_CONFIG = {
       link: "https://buy.stripe.com/cNi8wPaPLeUX58ZcfHdEs04" }
   ],
   // Host look: "shades" (D1G1T0L in sunglasses), "natural" (no bandana or sunglasses), "me" (camo bandana), or "generic".
-  character: "me",
+  character: "tiedye",
   // Split test: list looks here (for example ["me", "shades", "natural", "generic"]) and each
   // visitor gets one at random, kept on return visits. The look rides along to Stripe as
   // client_reference_id ("look-me") so payments can be counted per look. Empty = test off.
