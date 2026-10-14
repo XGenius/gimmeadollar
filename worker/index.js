@@ -261,8 +261,13 @@ async function handleWebhook(request, env, token) {
   const event = JSON.parse(raw);
   const s = event.data && event.data.object;
   if (!COUNTED_EVENTS.has(event.type) || !s) return json({ ignored: event.type });
-  const links = String(env.PAYMENT_LINK_IDS || "").split(",").map((x) => x.trim());
-  if (!links.includes(s.payment_link)) return json({ ignored: "other payment link" });
+  // The Stripe account only sells gifts to this silly guy, so every Payment Link on it
+  // counts (the pay-per-dollar link, the 10 and 100 dollar packages, any future ones).
+  // PAYMENT_LINK_IDS can narrow that to a comma separated list if that ever changes.
+  const links = String(env.PAYMENT_LINK_IDS || "*").split(",").map((x) => x.trim());
+  if (!s.payment_link || (!links.includes("*") && !links.includes(s.payment_link))) {
+    return json({ ignored: "not a payment link checkout" });
+  }
   if (s.payment_status !== "paid") return json({ ignored: `payment_status ${s.payment_status}` });
   if (s.currency !== "usd" || !Number.isInteger(s.amount_total)) {
     console.error(JSON.stringify({ msg: "stripe webhook: unexpected amount", session: s.id, currency: s.currency, amount_total: s.amount_total }));
