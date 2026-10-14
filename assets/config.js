@@ -15,7 +15,7 @@ window.GAD_CONFIG = {
       ribbon: "Best value (for you, somehow)",
       link: "https://buy.stripe.com/14A3cvcXT8wz44V2F7dEs03" },
     { name: "Name Your Price", gets: "Gimme any amount", price: "?", was: "Minimum $1. Maximum: go nuts.",
-      blurb: "As many dollars as you want. I won't stop you. I physically can't.", cta: "Gimme whatever",
+      blurb: "As many dollars as you want. I won't stop you. I physically can't.", cta: "Gimme lotsa dollars",
       link: "https://buy.stripe.com/cNi8wPaPLeUX58ZcfHdEs04" }
   ],
   // Host look: "shades" (D1G1T0L in sunglasses), "natural" (no bandana or sunglasses), "me" (camo bandana), or "generic".
