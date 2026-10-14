@@ -158,6 +158,15 @@
         window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(`${msg}\n\n${url}`)}`;
         bump();
       } else if (SOCIAL[kind]) {
+        // Facebook and LinkedIn ignore any text passed in the share link, so copy the
+        // message (with the link) first and tell them to paste it. Started before the
+        // popup opens, while this page still has focus.
+        if (kind !== "x") {
+          copyText(`${msg} ${url}`);
+          const note = b.closest(".socials") && b.closest(".socials").querySelector(".socials-note");
+          const where = kind === "facebook" ? "Facebook" : "LinkedIn";
+          if (note) note.textContent = `Message copied. Paste it into your ${where} post.`;
+        }
         // "noopener" would make window.open return null, so cut the link to this page by hand.
         const w = window.open(SOCIAL[kind], "_blank", "width=620,height=680");
         if (w) w.opener = null; else window.location.href = SOCIAL[kind];
