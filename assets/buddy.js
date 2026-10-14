@@ -366,6 +366,8 @@
         const res = await fetch("audio/manifest.json", { cache: "no-cache" });
         if (res.ok) {
           const m = await res.json();
+          // Clips may already be sped up when they were mastered.
+          this.baked = m.tempo || 1;
           if (m.clips && m.clips.length) {
             this.clips = {};
             m.clips.forEach((id) => { this.clips[id] = `audio/${id}.mp3`; });
@@ -390,9 +392,12 @@
           this.audio = new Audio();
           this.audio.preload = "auto";
           const src = this.ctx.createMediaElementSource(this.audio);
+          // A gain stage so a line cut off mid-word fades out instead of popping.
+          this.gain = this.ctx.createGain();
           this.analyser = this.ctx.createAnalyser();
           this.analyser.fftSize = 1024;
-          src.connect(this.analyser);
+          src.connect(this.gain);
+          this.gain.connect(this.analyser);
           this.analyser.connect(this.ctx.destination);
         }
       }
@@ -436,10 +441,28 @@
       };
       const end = () => { a.onended = a.onerror = null; finish(); };
       a.onended = a.onerror = end;
-      this.cancel = () => { a.pause(); end(); };
-      a.src = url;
-      a.playbackRate = SPEED;
-      a.play().catch(end);
+      const g = this.gain.gain, ctx = this.ctx;
+      const token = (this.token = (this.token || 0) + 1);
+      const cancel = this.cancel = () => {
+        // Quick fade, then pause, so an interrupted line doesn't click.
+        g.cancelScheduledValues(ctx.currentTime);
+        g.setValueAtTime(g.value, ctx.currentTime);
+        g.linearRampToValueAtTime(0, ctx.currentTime + 0.03);
+        this.fadeUntil = performance.now() + 40;
+        setTimeout(() => { if (this.token === token) a.pause(); }, 40);
+        end();
+      };
+      const go = () => {
+        this.token = token;
+        a.pause();
+        g.cancelScheduledValues(ctx.currentTime);
+        g.setValueAtTime(1, ctx.currentTime);
+        a.src = url;
+        a.playbackRate = SPEED / (this.baked || 1);
+        a.play().catch(end);
+      };
+      const wait = (this.fadeUntil || 0) - performance.now();
+      if (wait > 0) setTimeout(() => { if (this.cancel === cancel) go(); }, wait); else go();
     }
     _saySpeech(text, finish) {
       const u = new SpeechSynthesisUtterance(text);

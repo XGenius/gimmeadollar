@@ -5,19 +5,24 @@
 //   ELEVENLABS_API_KEY=... node tools/voice.mjs render all        (every line)
 //   ELEVENLABS_API_KEY=... node tools/voice.mjs render i01 x14    (just these)
 //
-// clone saves the new voice id to tools/voice.json; render writes audio/<id>.mp3
-// and audio/manifest.json, which the site picks up automatically.
+//   ELEVENLABS_API_KEY=... node tools/voice.mjs audit             (transcribe every clip, re-record bad ones)
+//   node tools/voice.mjs master                                   (rebuild audio/ from tools/raw/)
+//
+// clone saves the new voice id to tools/voice.json. render keeps the untouched
+// ElevenLabs take in tools/raw/<id>.mp3, checks it by transcribing it back, then
+// masters it into audio/<id>.mp3 (sped up, trimmed, faded, level matched) and
+// writes audio/manifest.json, which the site picks up automatically.
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const KEY = process.env.ELEVENLABS_API_KEY;
 const API = "https://api.elevenlabs.io/v1";
 const cfgPath = path.join(root, "tools", "voice.json");
-if (!KEY) { console.error("Set ELEVENLABS_API_KEY first."); process.exit(1); }
+if (!KEY && process.argv[2] !== "master") { console.error("Set ELEVENLABS_API_KEY first."); process.exit(1); }
 
 const cfg = fs.existsSync(cfgPath) ? JSON.parse(fs.readFileSync(cfgPath, "utf8")) : {};
 const save = () => fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + "\n");
@@ -55,6 +60,62 @@ function duration(file) {
   }
 }
 
+// Mastering. Speeding up here (Rubber Band, offline) sounds far cleaner than
+// asking the browser to time-stretch on the fly, and the short fades stop the
+// pops you get when a clip starts or stops mid-sound.
+const TEMPO = cfg.tempo || 1.3;
+const rawDir = path.join(root, "tools", "raw");
+let stretch;
+function master(id) {
+  if (stretch === undefined) {
+    const f = execFileSync("ffmpeg", ["-hide_banner", "-filters"]).toString();
+    stretch = /\brubberband\b/.test(f) ? `rubberband=tempo=${TEMPO}:transients=smooth:window=standard` : `atempo=${TEMPO}`;
+    if (!/rubberband/.test(stretch)) console.warn("ffmpeg has no rubberband filter; using atempo.");
+  }
+  const chain = [
+    "silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.02",
+    "areverse", "silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.05", "areverse",
+    stretch,
+    "afade=t=in:d=0.015", "areverse", "afade=t=in:d=0.04", "areverse",
+    "adelay=30:all=1", "apad=pad_dur=0.08"
+  ].join(",");
+  const wav = path.join(rawDir, `${id}.tmp.wav`);
+  execFileSync("ffmpeg", ["-v", "error", "-y", "-i", path.join(rawDir, `${id}.mp3`), "-af", chain, "-ac", "1", "-ar", "44100", wav]);
+  // Keep peaks 2 dB under full scale so the mp3 never clips (crackles) on decode.
+  const max = parseFloat((peakReport(wav).match(/max_volume: (-?[\d.]+) dB/) || [])[1] || "0");
+  const gain = -2 - max;
+  execFileSync("ffmpeg", ["-v", "error", "-y", "-i", wav, "-af", `volume=${gain.toFixed(2)}dB`, "-c:a", "libmp3lame", "-b:a", "128k", path.join(root, "audio", `${id}.mp3`)]);
+  fs.unlinkSync(wav);
+}
+function peakReport(wav) {
+  const r = spawnSync("ffmpeg", ["-hide_banner", "-i", wav, "-af", "volumedetect", "-f", "null", "-"]);
+  return r.stderr.toString();
+}
+
+// Transcribe a take with ElevenLabs Scribe and compare it to the line. Catches
+// babble, swallowed words and odd noises that still come out a normal length.
+const norm = (t) => t.toLowerCase().replace(/give me/g, "gimme").replace(/gonna/g, "going to").replace(/[^a-z0-9' ]+/g, " ").replace(/'/g, "").split(/\s+/).filter(Boolean);
+function similarity(a, b) {
+  const m = a.length, n = b.length, d = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
+  for (let j = 1; j <= n; j++) d[0][j] = j;
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return 1 - d[m][n] / Math.max(m, n, 1);
+}
+async function check(file, text) {
+  const form = new FormData();
+  form.append("model_id", "scribe_v1");
+  form.append("language_code", "en");
+  form.append("tag_audio_events", "true");
+  form.append("file", new Blob([fs.readFileSync(file)]), path.basename(file));
+  const res = await fetch(`${API}/speech-to-text`, { method: "POST", headers: { "xi-api-key": KEY }, body: form });
+  if (!res.ok) { console.warn(`  transcribe failed (${res.status}), skipping check`); return { ok: true, heard: "?" }; }
+  const body = await res.json();
+  const events = (body.words || []).filter((w) => w.type === "audio_event").map((w) => w.text);
+  const heard = (body.words || []).filter((w) => w.type === "word").map((w) => w.text).join(" ") || body.text || "";
+  const score = similarity(norm(text), norm(heard));
+  return { ok: score >= 0.85 && !events.length, score, heard, events };
+}
+
 async function render(only) {
   const voice = process.env.ELEVENLABS_VOICE_ID || cfg.voice_id;
   if (!voice) throw new Error("No voice yet. Run clone first or set ELEVENLABS_VOICE_ID.");
@@ -62,6 +123,7 @@ async function render(only) {
   const lines = [...S.intro, ...S.extra, ...S.thanks, ...S.hover];
   const outDir = path.join(root, "audio");
   fs.mkdirSync(outDir, { recursive: true });
+  fs.mkdirSync(rawDir, { recursive: true });
   // With no ids, record only lines that are new or whose words changed since
   // their clip was made ("all" re-records everything).
   const manifestPath = path.join(outDir, "manifest.json");
@@ -69,7 +131,7 @@ async function render(only) {
   const madeFrom = prev.texts || {};
   if (only[0] === "all") only = lines.map(([id]) => id);
   else if (!only.length) {
-    only = lines.filter(([id, text]) => madeFrom[id] !== text || !fs.existsSync(path.join(outDir, `${id}.mp3`))).map(([id]) => id);
+    only = lines.filter(([id, text]) => madeFrom[id] !== text || !fs.existsSync(path.join(rawDir, `${id}.mp3`))).map(([id]) => id);
     if (!only.length) { console.log("Every line already has an up-to-date clip."); return; }
   }
   const settings = Object.assign(
@@ -83,7 +145,8 @@ async function render(only) {
     // clip far longer than the words need, so re-roll those with a steadier
     // voice until the length looks like plain speech.
     const words = text.split(/\s+/).length;
-    const file = path.join(outDir, `${id}.mp3`);
+    const file = path.join(rawDir, `${id}.mp3`);
+    let best = null;
     for (let attempt = 0; ; attempt++) {
       const steady = Math.min(attempt, 3);
       const res = await fetch(`${API}/text-to-speech/${voice}?output_format=mp3_44100_128`, {
@@ -99,9 +162,14 @@ async function render(only) {
       fs.writeFileSync(file, Buffer.from(await res.arrayBuffer()));
       const secs = duration(file);
       const perWord = secs / Math.max(words, 4);
-      console.log(`${id}  ${secs.toFixed(2)}s  ${perWord.toFixed(2)}s/word  ${text}`);
-      if (perWord <= MAX_SECS_PER_WORD || attempt >= 5) break;
+      const heard = perWord <= MAX_SECS_PER_WORD ? await check(file, text) : { ok: false, score: 0, heard: "(too long)" };
+      console.log(`${id}  ${secs.toFixed(2)}s  ${perWord.toFixed(2)}s/word  match ${(heard.score ?? 1).toFixed(2)}${heard.events && heard.events.length ? "  events " + heard.events.join(" ") : ""}  ${text}${heard.ok ? "" : "\n      heard: " + heard.heard}`);
+      const score = (heard.ok ? 2 : 0) + (heard.score || 0);
+      if (!best || score > best.score) { best = { score, data: fs.readFileSync(file) }; }
+      if (heard.ok || attempt >= 5) break;
     }
+    fs.writeFileSync(file, best.data);
+    master(id);
   }
   const have = lines.map(([id]) => id).filter((id) => fs.existsSync(path.join(outDir, `${id}.mp3`)));
   const texts = {};
@@ -109,11 +177,36 @@ async function render(only) {
     if (!have.includes(id)) continue;
     texts[id] = only.includes(id) ? text : madeFrom[id] || text;
   }
-  fs.writeFileSync(manifestPath, JSON.stringify({ voice, clips: have, texts }, null, 2) + "\n");
+  fs.writeFileSync(manifestPath, JSON.stringify({ voice, tempo: TEMPO, clips: have, texts }, null, 2) + "\n");
   console.log(`manifest.json lists ${have.length} of ${lines.length} lines.`);
+}
+
+// Transcribe every existing take and re-record the ones that don't match.
+async function audit() {
+  const S = loadScript();
+  const bad = [];
+  for (const [id, text] of [...S.intro, ...S.extra, ...S.thanks, ...S.hover]) {
+    const file = path.join(rawDir, `${id}.mp3`);
+    if (!fs.existsSync(file)) continue;
+    const r = await check(file, text);
+    console.log(`${r.ok ? "ok " : "BAD"} ${id}  match ${(r.score ?? 1).toFixed(2)}${r.events && r.events.length ? "  events " + r.events.join(" ") : ""}  ${text}${r.ok ? "" : "\n      heard: " + r.heard}`);
+    if (!r.ok) bad.push(id);
+  }
+  console.log(`${bad.length} bad: ${bad.join(" ")}`);
+  if (bad.length) await render(bad);
+}
+
+function masterAll() {
+  const m = JSON.parse(fs.readFileSync(path.join(root, "audio", "manifest.json"), "utf8"));
+  for (const id of m.clips) master(id);
+  m.tempo = TEMPO;
+  fs.writeFileSync(path.join(root, "audio", "manifest.json"), JSON.stringify(m, null, 2) + "\n");
+  console.log(`Mastered ${m.clips.length} clips at ${TEMPO}x.`);
 }
 
 const [cmd, ...args] = process.argv.slice(2);
 if (cmd === "clone") await clone(args);
 else if (cmd === "render") await render(args);
+else if (cmd === "audit") await audit();
+else if (cmd === "master") masterAll();
 else console.log("Usage: node tools/voice.mjs clone <samples...> | render [ids...]");

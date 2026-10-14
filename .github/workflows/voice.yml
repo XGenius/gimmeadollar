@@ -1,8 +1,9 @@
 name: Record the voice
 
-# Renders every line in assets/script.js with the cloned ElevenLabs voice
-# and commits audio/*.mp3 plus audio/manifest.json. Runs when the script
-# changes, or by hand from the Actions tab.
+# Renders every line in assets/script.js with the cloned ElevenLabs voice,
+# checks each take by transcribing it back, masters it, and commits
+# tools/raw/*.mp3, audio/*.mp3 and audio/manifest.json. Runs when the script
+# changes, or by hand from the Actions tab (mode "audit" re-checks every clip).
 on:
   workflow_dispatch:
     inputs:
@@ -10,6 +11,10 @@ on:
         description: Line ids to re-record, space separated (empty = all)
         required: false
         default: ""
+      mode:
+        description: render (new or listed lines) or audit (transcribe every clip, re-record bad ones)
+        required: false
+        default: render
   push:
     branches: [main]
     paths: [assets/script.js, tools/voice.json, tools/voice.mjs, .github/workflows/voice.yml]
@@ -37,10 +42,14 @@ jobs:
             echo "::warning::ELEVENLABS_API_KEY secret is not set, skipping."
             exit 0
           fi
-          node tools/voice.mjs render ${{ github.event.inputs.ids }}
+          if [ "${{ github.event.inputs.mode }}" = "audit" ]; then
+            node tools/voice.mjs audit
+          else
+            node tools/voice.mjs render ${{ github.event.inputs.ids }}
+          fi
       - name: Commit clips
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add audio
+          git add audio tools/raw
           git diff --cached --quiet || { git commit -m "Record voice clips"; git push; }

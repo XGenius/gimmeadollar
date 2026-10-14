@@ -147,5 +147,6 @@
     "h01": "Yes! That one! Push that one!",
     "h02": "Ooh, you're so close!",
     "h03": "Do it! Do it! Do it!"
-  }
+  },
+  "tempo": 1.3
 }
