@@ -68,6 +68,8 @@ const TEMPO = cfg.tempo || 1;
 const rawDir = path.join(root, "tools", "raw");
 let stretch;
 function master(id) {
+  // At 1x skip the stretch filter entirely: Rubber Band still processes (and smears) audio at tempo 1.
+  if (stretch === undefined && TEMPO === 1) stretch = "";
   if (stretch === undefined) {
     const f = execFileSync("ffmpeg", ["-hide_banner", "-filters"]).toString();
     stretch = /\brubberband\b/.test(f) ? `rubberband=tempo=${TEMPO}:transients=smooth:window=standard` : `atempo=${TEMPO}`;
@@ -79,7 +81,7 @@ function master(id) {
     ...(TEMPO === 1 ? [] : [stretch]),
     "afade=t=in:d=0.015", "areverse", "afade=t=in:d=0.04", "areverse",
     "adelay=30:all=1", "apad=pad_dur=0.08"
-  ].join(",");
+  ].filter(Boolean).join(",");
   const wav = path.join(rawDir, `${id}.tmp.wav`);
   execFileSync("ffmpeg", ["-v", "error", "-y", "-i", path.join(rawDir, `${id}.mp3`), "-af", chain, "-ac", "1", "-ar", "44100", wav]);
   // Keep peaks 2 dB under full scale so the mp3 never clips (crackles) on decode.
