@@ -43,7 +43,6 @@
     me: {
       outfit: "tee",
       mouth: { cx: 150, cy: 186, w: 25, rest: 0.22 },
-      micTo: [174, 190],
       back: CURLY_BACK,
       face: `
         <ellipse cx="150" cy="130" rx="64" ry="78" fill="${SKIN}" stroke-width="6" ${S}/>
@@ -86,7 +85,6 @@
     natural: {
       outfit: "tee",
       mouth: { cx: 150, cy: 186, w: 25, rest: 0.22 },
-      micTo: [174, 190],
       back: CURLY_BACK,
       face: `
         <ellipse cx="150" cy="130" rx="64" ry="78" fill="${SKIN}" stroke-width="6" ${S}/>
@@ -114,7 +112,6 @@
     shades: {
       outfit: "tee",
       mouth: { cx: 150, cy: 186, w: 25, rest: 0.22 },
-      micTo: [174, 190],
       back: CURLY_BACK,
       face: `
         <ellipse cx="150" cy="130" rx="64" ry="78" fill="${SKIN}" stroke-width="6" ${S}/>
@@ -141,7 +138,6 @@
     },
     generic: {
       mouth: { cx: 150, cy: 172, w: 28, rest: 0 },
-      micTo: [182, 176],
       back: "",
       face: `
         <ellipse cx="80" cy="130" rx="13" ry="19" fill="${SKIN}" stroke-width="5" ${S}/>
@@ -239,7 +235,6 @@
           <rect x="246" y="128" width="54" height="28" rx="3" fill="#a9dc8c" stroke-width="4" ${S} transform="rotate(-14 273 142)"/>
           <circle cx="273" cy="142" r="7" fill="none" stroke="${INK}" stroke-width="3" transform="rotate(-14 273 142)"/>
         </g>` : "";
-    const burst = happy ? ["SOLD!", 19] : ["$1!", 22];
     return `
 <svg viewBox="0 0 400 ${legs ? 540 : 470}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A cartoon silly guy, arms wide, asking you for a dollar">
   <defs>
@@ -260,16 +255,7 @@
       </g>
     </g>
     ${L.front}
-    <path d="M78 118 Q80 30 150 28 Q220 30 222 118" fill="none" stroke="${INK}" stroke-width="5"/>
-    <path d="M224 140 Q224 ${L.micTo[1] - 4} ${L.micTo[0] + 6} ${L.micTo[1]}" fill="none" stroke="${INK}" stroke-width="4"/>
-    <circle cx="${L.micTo[0]}" cy="${L.micTo[1]}" r="6" fill="${INK}"/>
-    <rect x="214" y="122" width="16" height="26" rx="6" fill="${INK}"/>
    </g>
-  </g>
-  <g transform="translate(330 70) rotate(12)" class="gad-burst">
-    <polygon points="0,-54 13,-28 40,-40 31,-12 57,0 31,12 40,40 13,28 0,54 -13,28 -40,40 -31,12 -57,0 -31,-12 -40,-40 -13,-28" fill="#ffd166" stroke-width="6" ${S}/>
-    ${happy ? "" : `<text x="0" y="-4" text-anchor="middle" font-family="Lilita One, sans-serif" font-size="17" fill="${INK}">ONLY</text>`}
-    <text x="0" y="${happy ? 7 : 18}" text-anchor="middle" font-family="Lilita One, sans-serif" font-size="${burst[1] + 4}" fill="#e4572e">${burst[0]}</text>
   </g>
 </svg>`;
   }
