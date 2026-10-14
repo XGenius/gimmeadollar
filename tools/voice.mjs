@@ -9,6 +9,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -43,6 +44,16 @@ async function clone(files) {
   console.log(`Cloned. voice_id ${body.voice_id} saved to tools/voice.json`);
 }
 
+// Plain speech in this voice runs about 0.22 to 0.33 seconds a word.
+const MAX_SECS_PER_WORD = 0.36;
+function duration(file) {
+  try {
+    return parseFloat(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file]).toString());
+  } catch (_) {
+    return 0; // no ffprobe: skip the check
+  }
+}
+
 async function render(only) {
   const voice = process.env.ELEVENLABS_VOICE_ID || cfg.voice_id;
   if (!voice) throw new Error("No voice yet. Run clone first or set ELEVENLABS_VOICE_ID.");
@@ -57,14 +68,29 @@ async function render(only) {
   for (let i = 0; i < lines.length; i++) {
     const [id, text] = lines[i];
     if (only.length && !only.includes(id)) continue;
-    const res = await fetch(`${API}/text-to-speech/${voice}?output_format=mp3_44100_128`, {
-      method: "POST",
-      headers: { "xi-api-key": KEY, "content-type": "application/json", accept: "audio/mpeg" },
-      body: JSON.stringify({ text, model_id: cfg.model_id || "eleven_multilingual_v2", voice_settings: settings })
-    });
-    if (!res.ok) throw new Error(`${id} failed (${res.status}): ${await res.text()}`);
-    fs.writeFileSync(path.join(outDir, `${id}.mp3`), Buffer.from(await res.arrayBuffer()));
-    console.log(`${id}  ${text}`);
+    // The model sometimes tacks garbled babble onto a line. That shows up as a
+    // clip far longer than the words need, so re-roll those with a steadier
+    // voice until the length looks like plain speech.
+    const words = text.split(/\s+/).length;
+    const file = path.join(outDir, `${id}.mp3`);
+    for (let attempt = 0; ; attempt++) {
+      const steady = Math.min(attempt, 3);
+      const res = await fetch(`${API}/text-to-speech/${voice}?output_format=mp3_44100_128`, {
+        method: "POST",
+        headers: { "xi-api-key": KEY, "content-type": "application/json", accept: "audio/mpeg" },
+        body: JSON.stringify({
+          text,
+          model_id: cfg.model_id || "eleven_multilingual_v2",
+          voice_settings: { ...settings, stability: Math.min(0.8, settings.stability + steady * 0.15), style: Math.max(0, settings.style - steady * 0.15) }
+        })
+      });
+      if (!res.ok) throw new Error(`${id} failed (${res.status}): ${await res.text()}`);
+      fs.writeFileSync(file, Buffer.from(await res.arrayBuffer()));
+      const secs = duration(file);
+      const perWord = secs / Math.max(words, 4);
+      console.log(`${id}  ${secs.toFixed(2)}s  ${perWord.toFixed(2)}s/word  ${text}`);
+      if (perWord <= MAX_SECS_PER_WORD || attempt >= 5) break;
+    }
   }
   const have = lines.map(([id]) => id).filter((id) => fs.existsSync(path.join(outDir, `${id}.mp3`)));
   fs.writeFileSync(path.join(outDir, "manifest.json"), JSON.stringify({ voice, clips: have }, null, 2) + "\n");

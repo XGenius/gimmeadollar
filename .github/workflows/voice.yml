@@ -5,6 +5,11 @@ name: Record the voice
 # changes, or by hand from the Actions tab.
 on:
   workflow_dispatch:
+    inputs:
+      ids:
+        description: Line ids to re-record, space separated (empty = all)
+        required: false
+        default: ""
   push:
     branches: [main]
     paths: [assets/script.js, tools/voice.json, tools/voice.mjs, .github/workflows/voice.yml]
@@ -30,7 +35,7 @@ jobs:
             echo "::warning::ELEVENLABS_API_KEY secret is not set, skipping."
             exit 0
           fi
-          node tools/voice.mjs render
+          node tools/voice.mjs render ${{ github.event.inputs.ids }}
       - name: Commit clips
         run: |
           git config user.name "github-actions[bot]"
