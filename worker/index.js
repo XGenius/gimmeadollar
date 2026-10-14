@@ -3,6 +3,8 @@
 //
 //   GET  /api/meter          -> { dollars, gifts, goal }   (cached 30s at the edge)
 //   POST /api/stripe-webhook <- Stripe checkout events for the $1 payment link
+//   POST /api/stripe-webhook/<token> <- same, for an endpoint whose URL carries a
+//        random token instead of a signing secret (only its SHA-256 is in this repo)
 //
 // Each paid checkout session is stored once in a SQLite Durable Object, so
 // Stripe retries and duplicate deliveries never double count.
@@ -13,6 +15,11 @@ const GOAL_DOLLARS = 1_000_000;
 // Stripe docs (docs.stripe.com/webhooks/signatures): official libraries default
 // to a 5 minute tolerance between the signed timestamp and server time.
 const TOLERANCE_SECONDS = 300;
+// Paid before the webhook existed, so Stripe never told the meter about them.
+// Checked against Stripe's own record of completed checkout sessions.
+const EARLY_GIFTS = [
+  ["cs_live_a1dQw3uLUfPguskBaWWvAZGkcPqrwnyZBMuqhhgImapyaxkx3mpruzNZIw", 100, 1791935995],
+];
 const COUNTED_EVENTS = new Set([
   "checkout.session.completed",
   "checkout.session.async_payment_succeeded",
@@ -38,6 +45,7 @@ export class Meter extends DurableObject {
   }
 
   totals() {
+    for (const [id, cents, created] of EARLY_GIFTS) this.record(id, cents, created);
     const row = this.ctx.storage.sql
       .exec("SELECT COUNT(*) AS gifts, COALESCE(SUM(amount_cents), 0) AS cents FROM gifts")
       .one();
@@ -90,13 +98,19 @@ async function verifyStripe(rawBody, header, secret) {
   return v1.some((sig) => safeEqual(sig, expected));
 }
 
-async function handleWebhook(request, env) {
-  if (!env.STRIPE_WEBHOOK_SECRET) {
-    console.error(JSON.stringify({ msg: "stripe webhook: STRIPE_WEBHOOK_SECRET is not set" }));
-    return json({ error: "not configured" }, 500);
-  }
+// The endpoint Stripe calls can carry a long random token in its path. Only
+// Stripe knows the full URL; the repo holds just the token's SHA-256.
+async function tokenOk(token, env) {
+  if (!token || !env.HOOK_TOKEN_SHA256) return false;
+  const digest = hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)));
+  return safeEqual(digest, env.HOOK_TOKEN_SHA256);
+}
+
+async function handleWebhook(request, env, token) {
   const raw = await request.text();
-  const ok = await verifyStripe(raw, request.headers.get("stripe-signature"), env.STRIPE_WEBHOOK_SECRET);
+  const ok = token
+    ? await tokenOk(token, env)
+    : await verifyStripe(raw, request.headers.get("stripe-signature"), env.STRIPE_WEBHOOK_SECRET);
   if (!ok) {
     console.warn(JSON.stringify({ msg: "stripe webhook rejected: bad signature" }));
     return json({ error: "bad signature" }, 400);
@@ -135,6 +149,9 @@ export default {
     const { pathname } = new URL(request.url);
     if (pathname === "/api/meter" && request.method === "GET") return handleMeter(request, env, ctx);
     if (pathname === "/api/stripe-webhook" && request.method === "POST") return handleWebhook(request, env);
+    if (pathname.startsWith("/api/stripe-webhook/") && request.method === "POST") {
+      return handleWebhook(request, env, pathname.slice("/api/stripe-webhook/".length));
+    }
     if (pathname.startsWith("/api/")) return json({ error: "not found" }, 404);
     return env.ASSETS.fetch(request);
   },

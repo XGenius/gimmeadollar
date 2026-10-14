@@ -214,8 +214,23 @@
     <path d="M120 336 L120 318 M180 336 L180 318" stroke="${TEE_D}" stroke-width="3"/>`
   };
 
+  // Little legs in jeans and sneakers, for a host who walks around. They sit
+  // behind the shirt, hinge at the hip, and swing while .is-walking is on.
+  const DENIM = "#3d5f93";
+  const LEGS = `
+    <g class="gad-leg gad-leg-l">
+      <path d="M108 318 H140 V382 H108 Z" fill="${DENIM}" stroke-width="5" ${S}/>
+      <path d="M90 396 Q90 376 112 376 H140 Q146 376 146 386 V396 Z" fill="#fff" stroke-width="5" ${S}/>
+      <path d="M92 396 H144" stroke="${INK}" stroke-width="5" stroke-linecap="round"/>
+    </g>
+    <g class="gad-leg gad-leg-r">
+      <path d="M160 318 H192 V382 H160 Z" fill="${DENIM}" stroke-width="5" ${S}/>
+      <path d="M210 396 Q210 376 188 376 H160 Q154 376 154 386 V396 Z" fill="#fff" stroke-width="5" ${S}/>
+      <path d="M156 396 H208" stroke="${INK}" stroke-width="5" stroke-linecap="round"/>
+    </g>`;
+
   let uidCounter = 0;
-  function svgMarkup(happy, lookName) {
+  function svgMarkup(happy, lookName, legs) {
     const uid = ++uidCounter;
     const L = LOOKS[lookName] || LOOKS.me;
     const m = L.mouth;
@@ -226,14 +241,15 @@
         </g>` : "";
     const burst = happy ? ["SOLD!", 19] : ["$1!", 22];
     return `
-<svg viewBox="0 0 400 470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A cartoon infomercial host in a suit and headset mic, arms wide, pitching you on giving a dollar">
+<svg viewBox="0 0 400 ${legs ? 540 : 470}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A cartoon infomercial host in a suit and headset mic, arms wide, pitching you on giving a dollar">
   <defs>
     <clipPath id="gad-mouth-clip-${uid}"><path class="gad-mouth-shape"/></clipPath>
   </defs>
-  <ellipse cx="200" cy="452" rx="120" ry="12" fill="#000" opacity=".12" class="gad-shadow"/>
+  <ellipse cx="200" cy="${legs ? 527 : 452}" rx="${legs ? 100 : 120}" ry="12" fill="#000" opacity=".12" class="gad-shadow"/>
   <g class="gad-buddy">
    <g transform="translate(20 46) scale(1.2)">
     ${L.back}
+    ${legs ? LEGS : ""}
     ${(OUTFITS[L.outfit] || OUTFITS.suit)(bill)}
     ${L.face.replace(/__UID__/g, uid)}
     <g class="gad-mouth">
@@ -272,7 +288,7 @@
       this.happy = !!opts.happy;
       this.look = LOOKS[opts.look] ? opts.look : "me";
       this.m = LOOKS[this.look].mouth;
-      host.innerHTML = svgMarkup(this.happy, this.look);
+      host.innerHTML = svgMarkup(this.happy, this.look, !!opts.legs);
       this.svg = host.querySelector("svg");
       this.mouthShapes = host.querySelectorAll(".gad-mouth-shape");
       this.tongue = host.querySelector(".gad-tongue");
