@@ -228,4 +228,7 @@ footer a { color: inherit; }
 .fine-print { font-size: 13px !important; color: var(--ink-soft); margin: 10px 0 0; }
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.top-actions { display: flex; gap: 8px; align-items: center; }
+#dlg-post .row { gap: 8px; }
+@media (max-width: 420px) { .lbl-wide { display: none; } #dlg-post { padding: 22px 14px; } #dlg-post .btn.icon { width: 48px; height: 48px; padding: 8px; } .top-actions .btn[data-open="post"] { padding: 7px 10px; } }
 [hidden] { display: none !important; }

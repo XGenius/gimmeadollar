@@ -191,6 +191,8 @@
         bump();
       } else if (kind === "copy") {
         await copyText(url);
+        const note = b.closest(".socials") && b.closest(".socials").querySelector(".socials-note");
+        if (note) note.textContent = "Link copied.";
         const lbl = b.querySelector(".lbl");
         const old = lbl.textContent;
         lbl.textContent = "Copied";
